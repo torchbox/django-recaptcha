@@ -1,14 +1,19 @@
+import hashlib
 import os
 import uuid
 import warnings
 
 try:
-    from unittest.mock import patch, PropertyMock, MagicMock
-except ImportError:
+    # Python 2.7 does not have the mock module included, Python 3.5 has some
+    # features missing. We only install mock for those two versions.
     from mock import patch, PropertyMock, MagicMock
+except ImportError:
+    from unittest.mock import patch, PropertyMock, MagicMock
 
 from django import forms
 from django.core.exceptions import ImproperlyConfigured
+#from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.test import TestCase, override_settings
 
 from captcha import fields, widgets, constants
@@ -28,6 +33,7 @@ class TestFields(TestCase):
         form_params = {"g-recaptcha-response": "PASSED"}
         form = DefaultForm(form_params)
         self.assertTrue(form.is_valid())
+        mocked_submit.assert_called()
 
     @patch("captcha.fields.client.submit")
     def test_client_failure_response(self, mocked_submit):
@@ -392,3 +398,36 @@ class TestWidgets(TestCase):
         form_params = {"captcha": "PASSED"}
         form = VThreeDomainForm(form_params)
         self.assertFalse(form.is_valid())
+
+
+class TestFieldsWithRequests(TestCase):
+
+    @patch("captcha.fields.client.submit")
+    def test_client_wizard_response(self, mocked_submit):
+        mocked_submit.return_value = RecaptchaResponse(is_valid=True)
+        data = {
+            "charfield": "field",
+            "g-recaptcha-response": "PASSED",
+        }
+        response = self.client.post(
+            reverse("form"),
+            data=data,
+        )
+        mocked_submit.assert_called()
+        key = hashlib.sha256(
+            ("%s-captcha-cached-result" % reverse("form")).encode("utf-8")
+        ).hexdigest()
+        # TODO: test session value as well, should be True
+        self.assertIn(key, self.client.session.keys())
+        data = {
+            "charfield": "field",
+            "g-recaptcha-response": "PASSED",
+        }
+        response = self.client.post(
+            reverse("form"),
+            data=data,
+        )
+
+        # Submit should only be called if the validation was not halted due to
+        # it having been validated already.
+        mocked_submit.assert_called_once()
