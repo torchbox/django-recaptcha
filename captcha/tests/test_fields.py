@@ -84,6 +84,15 @@ class TestFields(TestCase):
             form.errors["captcha"], ["Error verifying reCAPTCHA, please try again."]
         )
 
+    @override_settings(RECAPTCHA_SKIP_VALIDATE=True)
+    def test_field_skip_validate(self):
+        form = DefaultForm({"captcha": "junk"})
+        self.assertTrue(form.is_valid())
+
+        # Test with completely missing captcha
+        form = DefaultForm({})
+        self.assertTrue(form.is_valid())
+
 
 class TestWidgets(TestCase):
     @patch("captcha.widgets.uuid.UUID.hex", new_callable=PropertyMock)
