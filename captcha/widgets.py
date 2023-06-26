@@ -76,6 +76,8 @@ class ReCaptchaV3(ReCaptchaBase):
             self.attrs["required_score"] = getattr(
                 settings, "RECAPTCHA_REQUIRED_SCORE", None
             )
+        if not self.attrs.get("returned_score", None):
+            self.attrs["returned_score"] = None
 
     def build_attrs(self, base_attrs, extra_attrs=None):
         attrs = super().build_attrs(base_attrs, extra_attrs)
